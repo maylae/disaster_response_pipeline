@@ -41,19 +41,19 @@ model = joblib.load("../models/classifier.pkl")
 def index():
     
     # extract data needed for visuals
-    # TODO: Below is an example - modify to extract data for your own visuals
-    print("df", df.head(5))
     genre_counts = df.groupby('genre').count()['message']
-    print("genre_counts", genre_counts)
+    category_names = df.columns[2:]
+    category_counts = df[category_names].sum()
+    print(category_names)
+    print(category_counts)
     genre_names = list(genre_counts.index)
-    heatmap_counts = np.zeros(len(genre_names), len(genre_names))
-    for i in len(genre_names):
-        print(genre_names[i], df[genre_names[i]])
-        for j in len(genre_names):
-            print(genre_names[j], df[genre_names[j]])
-            print(np.meshgrid(df[genre_names[i]], df[genre_names[j]]))
-            heatmap_counts[i,j] = np.meshgrid(df[genre_names[i]], df[genre_names[j]]).sum()
-    print(heatmap_counts)
+    heatmap_counts = np.zeros((len(category_names), len(category_names)))
+    for i in range(len(category_names)):
+        for j in range(len(category_names)):
+            if i>=j: # symmetric matrix, so we only need to compute one half and copy it to the other one
+                #print(i, j, category_names[i], category_names[j])
+                heatmap_counts[(i, j)] = (df[category_names[i]] * df[category_names[j]]).sum()/len(df[category_names[i]])
+                heatmap_counts[(j, i)] = heatmap_counts[(i, j)]
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
     graphs = [
@@ -77,19 +77,38 @@ def index():
         },
         {
             'data': [
+                Bar(
+                    x=category_names,
+                    y=category_counts
+                )
+            ],
+
+            'layout': {
+                'title': 'Distribution of Message Categories',
+                'yaxis': {
+                    'title': "Count"
+                },
+                'xaxis': {
+                    'title': "Category"
+                }
+            }
+        },
+        {
+            'data': [
                 Heatmap(
-                    x= genre_names,
-                    y= genre_names,
-                    z=
+                    x= category_names,
+                    y= category_names,
+                    z= heatmap_counts
                 )
     ],
             'layout': {
-                'title': 'Heatmpa of Message Genre classifications',
+                'title': 'Heatmap of Message Category classifications',
+                'height': 800,
                 'yaxis': {
-                    'title': "Genre"
+                    'title': "Category"
                 },
                 'xaxis': {
-                    'title': "Genre"
+                    'title': "Category"
                 }
             }
         }
@@ -108,9 +127,12 @@ def index():
 def go():
     # save user input in query
     query = request.args.get('query', '') 
-
+    print("query", query)
     # use model to predict classification for query
-    classification_labels = model.predict([query])[0]
+    prediction = model.predict([query])
+    print("prediction", prediction)
+    print("model", model)
+    classification_labels = prediction[0]
     print("classification_labels", classification_labels)
     classification_results = dict(zip(df.columns[4:], classification_labels))
 
