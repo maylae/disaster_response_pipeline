@@ -4,6 +4,8 @@ import nltk
 import pandas as pd
 import numpy as np
 import pickle
+import joblib
+
 from nltk import pos_tag
 nltk.download(['stopwords', 'wordnet', 'punkt'])
 from nltk.corpus import stopwords
@@ -63,12 +65,8 @@ def build_model():
     :return: Pipeline
     '''
     pipeline = Pipeline([
-        ('features', Pipeline([
-            ('text_features', Pipeline([
-                ('vect', CountVectorizer(tokenizer=tokenize)),
-                ('tfidf', TfidfTransformer())
-                ]))
-            ])),
+        ('vect', CountVectorizer(tokenizer=tokenize)),
+        ('tfidf', TfidfTransformer()),
         ('clf', MultiOutputClassifier(estimator=RandomForestClassifier()))
     ])
 
@@ -86,14 +84,12 @@ def evaluate_model(model, X_test, Y_test, category_names):
     '''
 
     y_pred = model.predict(X_test)
-    print(Y_test.shape)
-    #print(y_pred)
+    np.set_printoptions(threshold=1000)
 
-    Y_test=np.argmax(np.array(Y_test), axis=1)
-    y_pred=np.argmax(np.array(y_pred), axis=1)
-    print(y_pred)
-    metrics = precision_recall_fscore_support(Y_test, y_pred, average='weighted')
-    print(metrics)
+    for i in range(len(category_names)):
+        metrics = precision_recall_fscore_support(Y_test[category_names[i]], y_pred[:,i], average="weighted")
+        # Support is always None because average parameter is provided
+        print("Precision, recall, fscore, support for category", (i+1), category_names[i], metrics)
     return metrics
 
 
@@ -116,19 +112,21 @@ def main():
         database_filepath, model_filepath = sys.argv[1:]
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
         X, Y, category_names = load_data(database_filepath)
+
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
         
         print('Building model...')
         model = build_model()
-        #model.get_params().keys()
+        model.get_params().keys()
         parameters = {
             'clf__estimator__max_features': [10]
         }
-        model = model#GridSearchCV(model, parameters)
+        model = GridSearchCV(model, parameters)
 
         print('Training model...')
         model.fit(X_train, Y_train)
-        
+        model = joblib.load("models/classifier.pkl")
+
         print('Evaluating model...')
         evaluate_model(model, X_test, Y_test, category_names)
 
