@@ -1,60 +1,33 @@
-import sys
 import re
-import numpy as np
+import sys
+import nltk
 import pandas as pd
-from sqlalchemy import create_engine
-from nltk.tokenize import word_tokenize, sent_tokenize
-from nltk.stem import WordNetLemmatizer
+import numpy as np
+import pickle
 from nltk import pos_tag
+nltk.download(['stopwords', 'wordnet', 'punkt'])
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize, sent_tokenize, punkt
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.metrics import confusion_matrix
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.metrics import precision_recall_fscore_support
+from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputClassifier
-from sklearn.pipeline import Pipeline, FeatureUnion
-
-class StartingVerbExtractor (BaseEstimator, TransformerMixin):
-    def starting_verb(self, text):
-        '''
-
-        :param text:
-        :return:
-        '''
-        sentence_list = sent_tokenize(text)
-        for sentence in sentence_list:
-            pos_tags = pos_tag(tokenize(sentence))
-            first_word, first_tag = pos_tags[0]
-            if first_tag in ['VB', 'VBP'] or first_word == 'RT':
-                return True
-        return False
-
-    def fit(self, X, y=None):
-        '''
-
-        :param X:
-        :param y:
-        :return:
-        '''
-        return self
-
-    def transform(self, X):
-        '''
-
-        :param X:
-        :return:
-        '''
-        X_tagged = pd.Series(X).apply(self.starting_verb)
-        return pd.DataFrame(X_tagged)
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+from sqlalchemy import create_engine
 
 
 def load_data(database_filepath):
     '''
-
-    :param database_filepath:
-    :return:
+    Load data from database and extract X, y and category names
+    :param database_filepath: Path to the database where messages are stored
+    :return: messages, categories assigned to messages, category labels
     '''
-    engine = create_engine(database_filepath)
+    engine = create_engine('sqlite:///'+database_filepath)
     df = pd.read_sql_table("categorized_messages", engine)
     X = df["message"]
     Y = df.iloc[:, 5:]
@@ -63,9 +36,9 @@ def load_data(database_filepath):
 
 def tokenize(text):
     '''
-
-    :param text:
-    :return:
+    Replace urls in text, tokenize text into words, remove stop words and lemmatize the tokens
+    :param text: String to tokenize
+    :return: word tokenized and lemmatized text
     '''
     url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     detected_urls = re.findall(url_regex, text)
@@ -73,57 +46,65 @@ def tokenize(text):
         text = text.replace(url, "urlplaceholder")
 
     tokens = word_tokenize(text)
+    stop_words = set(stopwords.words('english'))
+    tokens = [w for w in tokens if w not in stop_words]
     lemmatizer = WordNetLemmatizer()
 
     clean_tokens = []
     for tok in tokens:
         clean_tok = lemmatizer.lemmatize(tok).lower().strip()
         clean_tokens.append(clean_tok)
-
     return clean_tokens
 
 
 def build_model():
     '''
-
-    :return:
+    Build pipeline for transformation and classification for disaster message classification
+    :return: Pipeline
     '''
     pipeline = Pipeline([
         ('features', Pipeline([
             ('text_features', Pipeline([
-                ('vect', CountVectorizer()),
-                ('tfidf', TfidfTransformer()),
-                ('clf', MultiOutputClassifier(estimator=RandomForestClassifier()))
-                ])),
-            ('verb', StartingVerbExtractor())
+                ('vect', CountVectorizer(tokenizer=tokenize)),
+                ('tfidf', TfidfTransformer())
+                ]))
             ])),
-         ('clf', RandomForestClassifier())
+        ('clf', MultiOutputClassifier(estimator=RandomForestClassifier()))
     ])
+
     return pipeline
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
     '''
-
-    :param model:
-    :param X_test:
-    :param Y_test:
-    :param category_names:
-    :return:
+    Check performance of machine learning model on test data
+    :param model: Estimator to evaluate
+    :param X_test: Messages in test set
+    :param Y_test: Categories for test set
+    :param category_names: Labels for the categories
+    :return: F1 score, precision and recall for each category
     '''
+
     y_pred = model.predict(X_test)
-    confusion_mat = confusion_matrix(Y_test, y_pred, labels=category_names)
-    accuracy = (y_pred == Y_test).mean()
+    print(Y_test.shape)
+    #print(y_pred)
+
+    Y_test=np.argmax(np.array(Y_test), axis=1)
+    y_pred=np.argmax(np.array(y_pred), axis=1)
+    print(y_pred)
+    metrics = precision_recall_fscore_support(Y_test, y_pred, average='weighted')
+    print(metrics)
+    return metrics
 
 
 def save_model(model, model_filepath):
     '''
 
-    :param model:
-    :param model_filepath:
+    :param model: machine learning model
+    :param model_filepath: filepath where pickle file should be saved
     :return:
     '''
-    pass
+    pickle.dump(model, open(model_filepath, 'wb'))
 
 
 def main():
@@ -139,7 +120,12 @@ def main():
         
         print('Building model...')
         model = build_model()
-        
+        #model.get_params().keys()
+        parameters = {
+            'clf__estimator__max_features': [10]
+        }
+        model = model#GridSearchCV(model, parameters)
+
         print('Training model...')
         model.fit(X_train, Y_train)
         

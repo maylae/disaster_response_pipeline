@@ -5,10 +5,10 @@ from sqlalchemy import create_engine
 
 def load_data(messages_filepath, categories_filepath):
     '''
-
-    :param messages_filepath:
-    :param categories_filepath:
-    :return:
+    Load csv files containing disaster messages and categories
+    :param messages_filepath: path to disaster messages csv file
+    :param categories_filepath: path to disaster categories csv file
+    :return: dataframe containing messages joined with categories
     '''
     messages = pd.read_csv(messages_filepath)
     categories = pd.read_csv(categories_filepath)
@@ -18,9 +18,9 @@ def load_data(messages_filepath, categories_filepath):
 
 def clean_data(df):
     '''
-
-    :param df:
-    :return:
+    Extract single columns from categories column, transform them into binary columns and drop duplicates.
+    :param df: Dataframe of messages with assigned categories
+    :return: Cleaned and deduplicated dataframe with single categories as columns
     '''
     # create a dataframe of the 36 individual category columns
     categories = df['categories'].str.split(';', expand=True)
@@ -39,28 +39,28 @@ def clean_data(df):
         # convert column from string to numeric
         categories[column] = categories[column].astype(int)
     # drop the original categories column from `df`
-    df.drop(['categories'], axis=1, inplace=True)
+    df.drop(['categories', 'id', 'id_cat', 'original'], axis=1, inplace=True)
     # concatenate the original dataframe with the new `categories` dataframe
     df = pd.concat([df, categories], axis=1)
     # drop duplicates
     df.drop_duplicates(inplace=True)
+    print(df.head(5))
+    return df
 
 
 def save_data(df, database_filename):
     '''
-
-    :param df:
-    :param database_filename:
-    :return:
+    Saves dataframe to database table
+    :param df: Dataframe to store
+    :param database_filename: Filename of database to save dataframe content in
     '''
-    engine = create_engine(database_filename)
+    engine = create_engine('sqlite:///'+database_filename)
     df.to_sql('categorized_messages', engine, index=False)
 
 
 def main():
     '''
-
-    :return:
+    Runs ETL process
     '''
     if len(sys.argv) == 4:
 
