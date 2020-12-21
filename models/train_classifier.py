@@ -4,15 +4,12 @@ import nltk
 import pandas as pd
 import numpy as np
 import pickle
-import joblib
+import bz2
 
-from nltk import pos_tag
 nltk.download(['stopwords', 'wordnet', 'punkt'])
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize, sent_tokenize, punkt
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.metrics import precision_recall_fscore_support
@@ -100,7 +97,8 @@ def save_model(model, model_filepath):
     :param model_filepath: filepath where pickle file should be saved
     :return:
     '''
-    pickle.dump(model, open(model_filepath, 'wb'))
+    sfile = bz2.BZ2File(model_filepath, 'w')
+    pickle.dump(model, sfile)
 
 
 def main():
@@ -119,18 +117,21 @@ def main():
         model = build_model()
         model.get_params().keys()
         parameters = {
-            'clf__estimator__max_features': [10]
+            'clf__estimator__max_features': [10, 50, 200],
+            'clf__estimator__max_depth': [10, 50, 100]
         }
         model = GridSearchCV(model, parameters)
 
         print('Training model...')
         model.fit(X_train, Y_train)
 
+        print("Best model", model.best_params_)
+
         print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+        evaluate_model(model.best_estimator_, X_test, Y_test, category_names)
 
         print('Saving model...\n    MODEL: {}'.format(model_filepath))
-        save_model(model, model_filepath)
+        save_model(model.best_estimator_, model_filepath)
 
         print('Trained model saved!')
 

@@ -2,6 +2,7 @@ import json
 import plotly
 import pandas as pd
 import numpy as np
+import pickle
 
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
@@ -32,7 +33,10 @@ engine = create_engine('sqlite:///../data/DisasterResponse.db')
 df = pd.read_sql_table('categorized_messages', engine)
 
 # load model
+#infile = open("../models/classifier.pkl", 'rb')
+#model = pickle.load(infile, encoding='latin1')
 model = joblib.load("../models/classifier.pkl")
+print(model)
 
 
 # index webpage displays cool visuals and receives user input text for model
