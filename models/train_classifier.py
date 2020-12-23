@@ -6,11 +6,15 @@ import numpy as np
 import pickle
 import bz2
 
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.naive_bayes import MultinomialNB
+
 nltk.download(['stopwords', 'wordnet', 'punkt'])
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize, sent_tokenize, punkt
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC, LinearSVC
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.model_selection import train_test_split
@@ -18,6 +22,7 @@ from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
 from sqlalchemy import create_engine
+from sklearn.metrics import f1_score, make_scorer
 
 
 def load_data(database_filepath):
@@ -64,7 +69,8 @@ def build_model():
     pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
-        ('clf', MultiOutputClassifier(estimator=RandomForestClassifier()))
+        ('clf', MultiOutputClassifier(MultinomialNB(
+                    fit_prior=True, class_prior=None)))
     ])
 
     return pipeline
@@ -81,7 +87,11 @@ def evaluate_model(model, X_test, Y_test, category_names):
     '''
 
     y_pred = model.predict(X_test)
-    np.set_printoptions(threshold=1000)
+    # make sure that the model does not always output only one label
+    number_of_labels = y_pred.sum(axis=1)
+    unique, counts = np.unique(number_of_labels, return_counts=True)
+    number_of_labels = dict(zip(unique, counts))
+    print("number of labels", number_of_labels)
 
     for i in range(len(category_names)):
         metrics = precision_recall_fscore_support(Y_test[category_names[i]], y_pred[:,i], average="weighted")
@@ -100,6 +110,20 @@ def save_model(model, model_filepath):
     sfile = bz2.BZ2File(model_filepath, 'w')
     pickle.dump(model, sfile)
 
+# from https://stackoverflow.com/questions/39685740/calculate-sklearn-roc-auc-score-for-multi-class
+def f1_score_multiclass(actual_class, pred_class, average = "macro"):
+
+  #creating a set of all the unique classes using the actual class list
+  unique_class = actual_class.columns
+  f1_dict = {}
+  for i in range(len(unique_class)):
+      score = f1_score(actual_class[unique_class[i]], pred_class[:, i], average=average)
+      f1_dict[i] = score
+
+  return np.mean([x for x in f1_dict.values()])
+
+
+f1_scorer = make_scorer(f1_score_multiclass)
 
 def main():
     '''
@@ -116,16 +140,20 @@ def main():
         print('Building model...')
         model = build_model()
         model.get_params().keys()
+        #parameters = {
+        #    'clf__estimator__max_features': [10, 50, 200],
+        #    'clf__estimator__max_depth': [10, 50, 100]
+        #}
         parameters = {
-            'clf__estimator__max_features': [10, 50, 200],
-            'clf__estimator__max_depth': [10, 50, 100]
+         #   'clf__estimator__kernel': ['linear', 'poly', 'rbf', 'sigmoid']
         }
-        model = GridSearchCV(model, parameters)
+        # accuracy is a bad choice for evaluation metric because the dataset is imbalance. E.g. the "Related" category appears very often.
+        model = GridSearchCV(model, parameters, scoring=f1_scorer)
 
         print('Training model...')
         model.fit(X_train, Y_train)
 
-        print("Best model", model.best_params_)
+        print("Best model", model.best_estimator_)
 
         print('Evaluating model...')
         evaluate_model(model.best_estimator_, X_test, Y_test, category_names)

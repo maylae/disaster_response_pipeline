@@ -51,6 +51,7 @@ def index():
     print(category_names)
     print(category_counts)
     genre_names = list(genre_counts.index)
+    number_of_labels = pd.DataFrame(df[2:].sum(axis=1).value_counts(), columns=['count'])
     heatmap_counts = np.zeros((len(category_names), len(category_names)))
     for i in range(len(category_names)):
         for j in range(len(category_names)):
@@ -76,6 +77,24 @@ def index():
                 },
                 'xaxis': {
                     'title': "Genre"
+                }
+            }
+        },
+        {
+            'data': [
+                Bar(
+                    x=number_of_labels.index,
+                    y=number_of_labels.count
+                )
+            ],
+
+            'layout': {
+                'title': 'Number of labels for messages',
+                'yaxis': {
+                    'title': "Number of labels"
+                },
+                'xaxis': {
+                    'title': "Number of messages with this number of labels"
                 }
             }
         },
