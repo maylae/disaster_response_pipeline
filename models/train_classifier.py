@@ -107,8 +107,7 @@ def save_model(model, model_filepath):
     :param model_filepath: filepath where pickle file should be saved
     :return:
     '''
-    sfile = bz2.BZ2File(model_filepath, 'w')
-    pickle.dump(model, sfile)
+    pickle.dump(model, model_filepath)
 
 # from https://stackoverflow.com/questions/39685740/calculate-sklearn-roc-auc-score-for-multi-class
 def f1_score_multiclass(actual_class, pred_class, average = "macro"):
@@ -136,7 +135,7 @@ def main():
         X, Y, category_names = load_data(database_filepath)
 
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3)
-        
+
         print('Building model...')
         model = build_model()
         model.get_params().keys()

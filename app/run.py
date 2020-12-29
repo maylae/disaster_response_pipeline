@@ -2,39 +2,21 @@ import json
 import plotly
 import pandas as pd
 import numpy as np
-import pickle
-
-from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import word_tokenize
 
 from flask import Flask
-from flask import render_template, request, jsonify
+from flask import render_template, request
 from plotly.graph_objs import Bar, Heatmap
-#from sklearn.externals \
+# from sklearn.externals \
 import joblib
 from sqlalchemy import create_engine
 
-
 app = Flask(__name__)
-
-def tokenize(text):
-    tokens = word_tokenize(text)
-    lemmatizer = WordNetLemmatizer()
-
-    clean_tokens = []
-    for tok in tokens:
-        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
-        clean_tokens.append(clean_tok)
-
-    return clean_tokens
 
 # load data
 engine = create_engine('sqlite:///../data/DisasterResponse.db')
 df = pd.read_sql_table('categorized_messages', engine)
 
 # load model
-#infile = open("../models/classifier.pkl", 'rb')
-#model = pickle.load(infile, encoding='latin1')
 model = joblib.load("../models/classifier.pkl")
 print(model)
 
@@ -43,7 +25,6 @@ print(model)
 @app.route('/')
 @app.route('/index')
 def index():
-    
     # extract data needed for visuals
     genre_counts = df.groupby('genre').count()['message']
     category_names = df.columns[2:]
@@ -55,9 +36,10 @@ def index():
     heatmap_counts = np.zeros((len(category_names), len(category_names)))
     for i in range(len(category_names)):
         for j in range(len(category_names)):
-            if i>=j: # symmetric matrix, so we only need to compute one half and copy it to the other one
-                #print(i, j, category_names[i], category_names[j])
-                heatmap_counts[(i, j)] = (df[category_names[i]] * df[category_names[j]]).sum()/len(df[category_names[i]])
+            if i >= j:  # symmetric matrix, so we only need to compute one half and copy it to the other one
+                # print(i, j, category_names[i], category_names[j])
+                heatmap_counts[(i, j)] = (df[category_names[i]] * df[category_names[j]]).sum() / len(
+                    df[category_names[i]])
                 heatmap_counts[(j, i)] = heatmap_counts[(i, j)]
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
@@ -84,7 +66,7 @@ def index():
             'data': [
                 Bar(
                     x=number_of_labels.index,
-                    y=number_of_labels.count
+                    y=number_of_labels['count']
                 )
             ],
 
@@ -119,11 +101,11 @@ def index():
         {
             'data': [
                 Heatmap(
-                    x= category_names,
-                    y= category_names,
-                    z= heatmap_counts
+                    x=category_names,
+                    y=category_names,
+                    z=heatmap_counts
                 )
-    ],
+            ],
             'layout': {
                 'title': 'Heatmap of Message Category classifications',
                 'height': 800,
@@ -136,11 +118,11 @@ def index():
             }
         }
     ]
-    
+
     # encode plotly graphs in JSON
     ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
     graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
-    
+
     # render web page with plotly graphs
     return render_template('master.html', ids=ids, graphJSON=graphJSON)
 
@@ -149,7 +131,7 @@ def index():
 @app.route('/go')
 def go():
     # save user input in query
-    query = request.args.get('query', '') 
+    query = request.args.get('query', '')
     print("query", query)
     # use model to predict classification for query
     prediction = model.predict([query])
