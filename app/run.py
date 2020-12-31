@@ -1,16 +1,42 @@
 import json
+import re
+
 import plotly
 import pandas as pd
 import numpy as np
 
 from flask import Flask
 from flask import render_template, request
+from nltk import word_tokenize, WordNetLemmatizer
+from nltk.corpus import stopwords
 from plotly.graph_objs import Bar, Heatmap
 # from sklearn.externals \
 import joblib
 from sqlalchemy import create_engine
 
 app = Flask(__name__)
+
+def tokenize(text):
+    '''
+    Replace urls in text, tokenize text into words, remove stop words and lemmatize the tokens
+    :param text: String to tokenize
+    :return: word tokenized and lemmatized text
+    '''
+    url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    detected_urls = re.findall(url_regex, text)
+    for url in detected_urls:
+        text = text.replace(url, "urlplaceholder")
+
+    tokens = word_tokenize(text)
+    stop_words = set(stopwords.words('english'))
+    tokens = [w for w in tokens if w not in stop_words]
+    lemmatizer = WordNetLemmatizer()
+
+    clean_tokens = []
+    for tok in tokens:
+        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
+        clean_tokens.append(clean_tok)
+    return clean_tokens
 
 # load data
 engine = create_engine('sqlite:///../data/DisasterResponse.db')

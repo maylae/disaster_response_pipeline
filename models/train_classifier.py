@@ -107,12 +107,13 @@ def save_model(model, model_filepath):
     :param model_filepath: filepath where pickle file should be saved
     :return:
     '''
-    pickle.dump(model, model_filepath)
+    pickle.dump(model, open( model_filepath, "wb" ))
+
 
 # from https://stackoverflow.com/questions/39685740/calculate-sklearn-roc-auc-score-for-multi-class
 def f1_score_multiclass(actual_class, pred_class, average = "macro"):
 
-  #creating a set of all the unique classes using the actual class list
+  # creating a set of all the unique classes using the actual class list
   unique_class = actual_class.columns
   f1_dict = {}
   for i in range(len(unique_class)):
