@@ -36,26 +36,28 @@ def clean_data(df):
     for column in categories:
         # set each value to be the last character of the string
         categories[column] = categories[column].astype(str).str[-1:]
-        # convert column from string to numeric
+        # convert column from string to binary
         categories[column] = categories[column].astype(int)
     # drop the original categories column from `df`
     df.drop(['categories', 'id', 'id_cat', 'original'], axis=1, inplace=True)
+    # convert to binary
+    categories = categories.applymap(lambda col: col > 0)
     # concatenate the original dataframe with the new `categories` dataframe
     df = pd.concat([df, categories], axis=1)
     # drop duplicates
     df.drop_duplicates(inplace=True)
-    print(df.head(5))
+
     return df
 
 
 def save_data(df, database_filename):
     '''
-    Saves dataframe to database table
+    Saves dataframe to database table. Replaces tables if exists.
     :param df: Dataframe to store
     :param database_filename: Filename of database to save dataframe content in
     '''
     engine = create_engine('sqlite:///'+database_filename)
-    df.to_sql('categorized_messages', engine, index=False)
+    df.to_sql('categorized_messages', engine, index=False, if_exists = 'replace')
 
 
 def main():
