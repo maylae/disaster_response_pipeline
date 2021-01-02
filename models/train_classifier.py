@@ -6,15 +6,12 @@ import numpy as np
 import pickle
 import bz2
 
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn.naive_bayes import MultinomialNB
-
 nltk.download(['stopwords', 'wordnet', 'punkt'])
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize, sent_tokenize, punkt
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC, LinearSVC
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.model_selection import train_test_split
@@ -69,8 +66,7 @@ def build_model():
     pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
-        ('clf', MultiOutputClassifier(MultinomialNB(
-                    fit_prior=True, class_prior=None)))
+        ('clf', MultiOutputClassifier(MultinomialNB()))
     ])
 
     return pipeline
@@ -139,13 +135,11 @@ def main():
 
         print('Building model...')
         model = build_model()
-        model.get_params().keys()
-        #parameters = {
-        #    'clf__estimator__max_features': [10, 50, 200],
-        #    'clf__estimator__max_depth': [10, 50, 100]
-        #}
+        #print(model.get_params().keys())
+
         parameters = {
-         #   'clf__estimator__kernel': ['linear', 'poly', 'rbf', 'sigmoid']
+            'clf__estimator__fit_prior': ['true', 'false'],
+            'clf__estimator__alpha': [0.1, 0.5, 1.0]
         }
         # accuracy is a bad choice for evaluation metric because the dataset is imbalance. E.g. the "Related" category appears very often.
         model = GridSearchCV(model, parameters, scoring=f1_scorer)
