@@ -21,17 +21,16 @@ This project has three main components.
 
 1. ETL Pipeline
 The ETL script does the following:
-
-Load messages and categories datasets
-Merge and clean the data
-Save the cleaned data in a SQLite database
+- Load messages and categories datasets
+- Merge and clean the data
+- Save the cleaned data in a SQLite database
 
 2. Classifier training
-Train a classifier on a test set
-Hyperparameter optimization using GridSearchCV
-Save trained model as pickle file
+- Train a classifier on a test set
+- Hyperparameter optimization using GridSearchCV
+- Save trained model as pickle file
 
 3. Web App
-Create Flask web app
-Show plotly visuals with information on test set
-Provide opportunity for a user to classify new messages
+-Create Flask web app
+- Show plotly visuals with information on test set
+- Provide opportunity for a user to classify new messages
